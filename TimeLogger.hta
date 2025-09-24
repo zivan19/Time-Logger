@@ -294,16 +294,6 @@
             });
         }
 
-        function trimInputValue(input) {
-            if (!input || typeof input.value === "undefined") {
-                return "";
-            }
-
-            return safeTrim(input.value);
-        }
-
-        function startTimer() {
-            var description = trimInputValue(descriptionInput);
             if (!description) {
                 alert("Please enter what you are working on before starting the timer.");
                 descriptionInput.focus();
@@ -364,17 +354,6 @@
             currentDescription = "";
         }
 
-        function safeTrim(value) {
-            if (value == null) {
-                return "";
-            }
-
-            if (typeof value.trim === "function") {
-                return value.trim();
-            }
-
-            return String(value).replace(/^\s+|\s+$/g, "");
-        }
 
         function exportToday() {
             var logPath = getDailyLogPath(new Date());
