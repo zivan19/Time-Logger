@@ -294,11 +294,16 @@
             });
         }
 
+        function trimInputValue(input) {
+            if (!input || typeof input.value === "undefined") {
+                return "";
+            }
+
+            return safeTrim(input.value);
+        }
+
         function startTimer() {
-            var rawDescription = (descriptionInput && typeof descriptionInput.value !== "undefined")
-                ? descriptionInput.value
-                : "";
-            var description = safeTrim(rawDescription);
+            var description = trimInputValue(descriptionInput);
             if (!description) {
                 alert("Please enter what you are working on before starting the timer.");
                 descriptionInput.focus();
