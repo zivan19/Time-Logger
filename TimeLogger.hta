@@ -294,13 +294,6 @@
             });
         }
 
-        function startTimer() {
-            var description = "";
-
-            if (descriptionInput && typeof descriptionInput.value !== "undefined") {
-                description = String(descriptionInput.value).replace(/^\s+|\s+$/g, "");
-            }
-
             if (!description) {
                 alert("Please enter what you are working on before starting the timer.");
                 descriptionInput.focus();
