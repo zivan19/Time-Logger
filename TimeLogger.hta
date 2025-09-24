@@ -294,6 +294,9 @@
             });
         }
 
+        // ---- FIXED: Add missing startTimer function ----
+        function startTimer() {
+            var description = descriptionInput.value.trim();
             if (!description) {
                 alert("Please enter what you are working on before starting the timer.");
                 descriptionInput.focus();
