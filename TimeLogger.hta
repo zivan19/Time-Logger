@@ -1,0 +1,391 @@
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Time Logger</title>
+    <hta:application
+        id="TimeLoggerApp"
+        applicationname="Time Logger"
+        border="thin"
+        caption="yes"
+        contextmenu="no"
+        innerborder="no"
+        navigable="no"
+        scroll="no"
+        singleinstance="yes"
+        sysmenu="yes"
+        windowstate="normal"
+        icon=""
+    />
+    <style>
+        body {
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background: #f1f5f9;
+            color: #0f172a;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background: #1d4ed8;
+            color: white;
+            padding: 16px 24px;
+            box-shadow: 0 2px 4px rgba(15, 23, 42, 0.2);
+        }
+        header h1 {
+            margin: 0;
+            font-size: 22px;
+        }
+        main {
+            padding: 24px;
+        }
+        .panel {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid #cbd5f5;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        input[type="text"]:focus {
+            border-color: #1d4ed8;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+        }
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+        button {
+            border: none;
+            border-radius: 8px;
+            padding: 10px 18px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+        button.primary {
+            background: #1d4ed8;
+            color: white;
+            box-shadow: 0 4px 12px rgba(29, 78, 216, 0.35);
+        }
+        button.secondary {
+            background: white;
+            color: #1d4ed8;
+            border: 1px solid #1d4ed8;
+        }
+        button:disabled {
+            cursor: not-allowed;
+            background: #cbd5f5 !important;
+            color: #475569 !important;
+            box-shadow: none !important;
+            transform: none !important;
+        }
+        button:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.15);
+        }
+        .timer-display {
+            margin-top: 12px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+        }
+        th, td {
+            text-align: left;
+            padding: 10px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 13px;
+        }
+        th {
+            background: #eff6ff;
+            font-weight: 700;
+            color: #1e3a8a;
+        }
+        tbody tr:nth-child(even) {
+            background: #f8fafc;
+        }
+        .status {
+            font-size: 13px;
+            color: #2563eb;
+            margin-top: 10px;
+        }
+        footer {
+            text-align: center;
+            font-size: 12px;
+            color: #64748b;
+            padding: 12px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Time Logger</h1>
+        <div id="statusText">Waiting to start a task.</div>
+    </header>
+    <main>
+        <section class="panel">
+            <label for="taskDescription">What are you working on?</label>
+            <input type="text" id="taskDescription" placeholder="Enter a clear description of your task" />
+            <div class="timer-display" id="timerDisplay">00:00:00</div>
+            <div class="controls">
+                <button class="primary" id="startButton" onclick="startTimer()">Start</button>
+                <button class="secondary" id="stopButton" onclick="stopTimer()" disabled>Stop</button>
+                <button class="secondary" id="exportButton" onclick="exportToday()">Open today's log</button>
+            </div>
+            <div class="status" id="infoMessage"></div>
+        </section>
+
+        <section class="panel">
+            <h2>Today's Sessions</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th>Start (DD/MM - HH:mm)</th>
+                        <th>End (DD/MM - HH:mm)</th>
+                        <th>Duration (hours)</th>
+                    </tr>
+                </thead>
+                <tbody id="sessionTableBody">
+                    <tr id="emptyState"><td colspan="4">No time logged yet.</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </main>
+    <footer>
+        Logs are saved automatically to <strong>Time Logs/Times Logged</strong> inside this folder.
+    </footer>
+
+    <script type="text/javascript">
+        var fso = new ActiveXObject("Scripting.FileSystemObject");
+        var appRoot = getAppRoot();
+        var logFolder = ensureFolder(appRoot + "\\Time Logs");
+        var timesFolder = ensureFolder(logFolder + "\\Times Logged");
+
+        var timerInterval = null;
+        var currentStartTime = null;
+        var currentDescription = "";
+        var sessions = [];
+
+        var startButton = document.getElementById("startButton");
+        var stopButton = document.getElementById("stopButton");
+        var timerDisplay = document.getElementById("timerDisplay");
+        var statusText = document.getElementById("statusText");
+        var infoMessage = document.getElementById("infoMessage");
+        var descriptionInput = document.getElementById("taskDescription");
+        var tableBody = document.getElementById("sessionTableBody");
+        var emptyStateRow = document.getElementById("emptyState");
+
+        function getAppRoot() {
+            var path = unescape(window.location.pathname);
+            if (path.indexOf("file:///") === 0) {
+                path = path.replace("file:///", "");
+            } else if (path.indexOf("file:/") === 0) {
+                path = path.replace("file:/", "");
+            }
+            path = path.replace(/\//g, "\\");
+            if (path.charAt(0) === "\\" && path.charAt(2) === ":") {
+                path = path.substring(1);
+            }
+            return path.substring(0, path.lastIndexOf("\\"));
+        }
+
+        function ensureFolder(folderPath) {
+            if (!fso.FolderExists(folderPath)) {
+                fso.CreateFolder(folderPath);
+            }
+            return folderPath;
+        }
+
+        function formatDateTime(date) {
+            var day = ("0" + date.getDate()).slice(-2);
+            var month = ("0" + (date.getMonth() + 1)).slice(-2);
+            var hours = ("0" + date.getHours()).slice(-2);
+            var minutes = ("0" + date.getMinutes()).slice(-2);
+            return day + "/" + month + " - " + hours + ":" + minutes;
+        }
+
+        function formatTimerDisplay(ms) {
+            var totalSeconds = Math.floor(ms / 1000);
+            var seconds = totalSeconds % 60;
+            var minutes = Math.floor(totalSeconds / 60) % 60;
+            var hours = Math.floor(totalSeconds / 3600);
+            return [hours, minutes, seconds].map(function (value) {
+                return ("0" + value).slice(-2);
+            }).join(":");
+        }
+
+        function getDailyLogPath(date) {
+            var year = date.getFullYear();
+            var month = ("0" + (date.getMonth() + 1)).slice(-2);
+            var day = ("0" + date.getDate()).slice(-2);
+            return timesFolder + "\\" + year + "-" + month + "-" + day + ".txt";
+        }
+
+        function appendToLog(entry) {
+            var logPath = getDailyLogPath(entry.start);
+            var logLine = [
+                "Description: " + entry.description,
+                "Start: " + formatDateTime(entry.start),
+                "End: " + formatDateTime(entry.end),
+                "Duration (hours): " + entry.duration.toFixed(2)
+            ].join(" | ");
+
+            var logFile;
+            if (fso.FileExists(logPath)) {
+                logFile = fso.OpenTextFile(logPath, 8, true);
+            } else {
+                logFile = fso.CreateTextFile(logPath, true);
+                logFile.WriteLine("Time Log for " + formatDateTime(entry.start).split(" - ")[0]);
+                logFile.WriteLine("======================================");
+            }
+            logFile.WriteLine(logLine);
+            logFile.Close();
+            infoMessage.innerText = "Saved to " + logPath;
+        }
+
+        function updateSessionTable() {
+            while (tableBody.firstChild) {
+                tableBody.removeChild(tableBody.firstChild);
+            }
+
+            if (sessions.length === 0) {
+                tableBody.appendChild(emptyStateRow);
+                return;
+            }
+
+            sessions.forEach(function (session) {
+                var row = document.createElement("tr");
+                var descriptionCell = document.createElement("td");
+                descriptionCell.innerText = session.description;
+                row.appendChild(descriptionCell);
+
+                var startCell = document.createElement("td");
+                startCell.innerText = formatDateTime(session.start);
+                row.appendChild(startCell);
+
+                var endCell = document.createElement("td");
+                endCell.innerText = formatDateTime(session.end);
+                row.appendChild(endCell);
+
+                var durationCell = document.createElement("td");
+                durationCell.innerText = session.duration.toFixed(2);
+                row.appendChild(durationCell);
+
+                tableBody.appendChild(row);
+            });
+        }
+
+        function startTimer() {
+            var rawDescription = (descriptionInput && typeof descriptionInput.value !== "undefined")
+                ? descriptionInput.value
+                : "";
+            var description = safeTrim(rawDescription);
+            if (!description) {
+                alert("Please enter what you are working on before starting the timer.");
+                descriptionInput.focus();
+                return;
+            }
+
+            currentDescription = description;
+            currentStartTime = new Date();
+            statusText.innerText = "Timing: " + currentDescription;
+            infoMessage.innerText = "Timer started at " + formatDateTime(currentStartTime) + ".";
+
+            startButton.disabled = true;
+            stopButton.disabled = false;
+            descriptionInput.disabled = true;
+
+            timerDisplay.innerText = "00:00:00";
+            timerInterval = window.setInterval(function () {
+                var now = new Date();
+                var elapsed = now - currentStartTime;
+                timerDisplay.innerText = formatTimerDisplay(elapsed);
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (!currentStartTime) {
+                return;
+            }
+
+            var endTime = new Date();
+            if (endTime <= currentStartTime) {
+                endTime = new Date(currentStartTime.getTime() + 1000);
+            }
+            var durationHours = (endTime - currentStartTime) / 3600000;
+
+            var entry = {
+                description: currentDescription,
+                start: currentStartTime,
+                end: endTime,
+                duration: durationHours
+            };
+
+            sessions.push(entry);
+            appendToLog(entry);
+            updateSessionTable();
+
+            window.clearInterval(timerInterval);
+            timerInterval = null;
+            timerDisplay.innerText = "00:00:00";
+            statusText.innerText = "Waiting to start a task.";
+            infoMessage.innerText += " Duration logged: " + entry.duration.toFixed(2) + " hours.";
+
+            descriptionInput.value = "";
+            descriptionInput.disabled = false;
+            descriptionInput.focus();
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            currentStartTime = null;
+            currentDescription = "";
+        }
+
+        function safeTrim(value) {
+            if (value == null) {
+                return "";
+            }
+
+            if (typeof value.trim === "function") {
+                return value.trim();
+            }
+
+            return String(value).replace(/^\s+|\s+$/g, "");
+        }
+
+        function exportToday() {
+            var logPath = getDailyLogPath(new Date());
+            if (fso.FileExists(logPath)) {
+                var shell = new ActiveXObject("WScript.Shell");
+                shell.Run('"' + logPath + '"');
+            } else {
+                alert("No log has been created yet for today. Start and stop a timer to generate one.");
+            }
+        }
+
+        window.onbeforeunload = function () {
+            if (currentStartTime) {
+                return "A timer is currently running. Stopping it will discard the ongoing session.";
+            }
+        };
+    </script>
+</body>
+</html>
