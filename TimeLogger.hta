@@ -294,8 +294,6 @@
             });
         }
 
-        function startTimer() {
-            var description = descriptionInput.value.trim();
             if (!description) {
                 alert("Please enter what you are working on before starting the timer.");
                 descriptionInput.focus();
@@ -355,6 +353,7 @@
             currentStartTime = null;
             currentDescription = "";
         }
+
 
         function exportToday() {
             var logPath = getDailyLogPath(new Date());
